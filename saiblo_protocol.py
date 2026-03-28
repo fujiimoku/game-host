@@ -62,7 +62,8 @@ class SaibloProtocol:
             length = len(content)
 
             # 构造头部: 4字节长度 + 4字节目标
-            header = struct.pack('>II', length, target)
+            # 注意: target 为 -1 时表示观战，使用 'i' (signed) 或先处理为 unsigned
+            header = struct.pack('>Ii', length, target)
 
             # 写入
             sys.stdout.buffer.write(header)
