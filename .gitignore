@@ -1,1 +1,7 @@
 __pycache__/*
+replay.json
+server/*.dll
+server/*.pdb
+server/*.json
+server/BoardCase/
+server/net8.0/
