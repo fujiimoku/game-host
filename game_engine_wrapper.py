@@ -1,10 +1,19 @@
-import clr
 import sys
 import json
 import os
 
+# 在 import clr 之前，明确指定使用 coreclr（.NET 8）而不是 Mono
+if os.environ.get("USE_MOCK_DLL", "0") == "0":
+    try:
+        import pythonnet
+        pythonnet.load("coreclr")
+    except Exception as e:
+        print(f"[WARN] pythonnet coreclr 初始化失败: {e}", file=sys.stderr)
+
+import clr
+
 # 获取 DLL 所在的绝对路径
-DLL_DIR = r"f:\Uni\s\2026_1春\Project：THUAI9通信\THUAI9-Backend\server\server\server\publish"
+DLL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server")
 if DLL_DIR not in sys.path:
     sys.path.append(DLL_DIR)
 
@@ -26,7 +35,37 @@ class MockGameEngine:
     def SetPlayerPieces(self, p, j): return True
     def NextTurn(self): self.round += 1
     def GetStateJson(self):
-        return json.dumps({"currentRound": self.round, "currentPlayerId": (self.round % 2) + 1, "isGameOver": self.round >= 5})
+        pid = (self.round % 2) + 1  # 1 or 2
+        pieces = [
+            {"id": 0, "team": 1, "health": 50, "max_health": 50,
+             "physical_resist": 8, "magic_resist": 10, "physical_damage": 18, "magic_damage": 0,
+             "action_points": 2, "max_action_points": 2, "spell_slots": 1, "max_spell_slots": 1,
+             "movement": 15.0, "max_movement": 15.0, "strength": 10, "dexterity": 10, "intelligence": 10,
+             "position": {"x": 5, "y": 2}, "height": 0, "attack_range": 5, "spell_range": 0.0,
+             "is_alive": True, "is_in_turn": pid == 1, "is_dying": False,
+             "deathRound": -1, "queue_index": 0, "spell_list": []},
+            {"id": 1, "team": 2, "health": 50, "max_health": 50,
+             "physical_resist": 8, "magic_resist": 10, "physical_damage": 18, "magic_damage": 0,
+             "action_points": 2, "max_action_points": 2, "spell_slots": 1, "max_spell_slots": 1,
+             "movement": 15.0, "max_movement": 15.0, "strength": 10, "dexterity": 10, "intelligence": 10,
+             "position": {"x": 5, "y": 12}, "height": 0, "attack_range": 5, "spell_range": 0.0,
+             "is_alive": True, "is_in_turn": pid == 2, "is_dying": False,
+             "deathRound": -1, "queue_index": 1, "spell_list": []},
+        ]
+        board = {
+            "width": 10, "height": 15, "boarder": 7,
+            "grid": [{"state": 1, "playerId": -1, "pieceId": -1} for _ in range(150)],
+            "height_map": [0] * 150,
+        }
+        return json.dumps({
+            "currentRound": self.round,
+            "currentPlayerId": pid,
+            "currentPieceID": pid - 1,  # piece id 0 for team1, 1 for team2
+            "isGameOver": self.round >= 5,
+            "actionQueue": pieces,
+            "board": board,
+            "delayedSpells": [],
+        })
     def ExecuteAction(self, p, j): return True
     def IsGameOver(self): return self.round >= 5
     def GetWinner(self): return 1

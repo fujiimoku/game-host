@@ -47,11 +47,9 @@ class GameHost:
 
         # 4. 配置双方初始棋子 (此处可根据后端约定传递默认配置)
         for saiblo_id in [0, 1]:
-            # 获取默认棋子配置 (JSON 列表)
-            # todo: 与后端确认默认棋子数据结构
             default_pieces = self._get_default_pieces(saiblo_id)
-            # C# 接口使用 1-based ID
-            self.wrapper.set_player_pieces(saiblo_id, default_pieces)
+            result = self.wrapper.set_player_pieces(saiblo_id, default_pieces)
+            print(f"[INFO] SetPlayerPieces({saiblo_id}) = {result}, pieces={default_pieces}", file=sys.stderr)
 
         # 5. 发送回合配置给 Saiblo (超时 60s, 最大消息 4096 字节)
         SaibloProtocol.send_round_config(time=60, length=4096)
