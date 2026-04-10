@@ -2,31 +2,34 @@ import sys
 import json
 import os
 
-# 在 import clr 之前，明确指定使用 coreclr（.NET 8）而不是 Mono
-if os.environ.get("USE_MOCK_DLL", "0") == "0":
+GameEngineType = None
+
+USE_MOCK = os.environ.get("USE_MOCK_DLL", "0") == "1"
+
+if not USE_MOCK:
     try:
         import pythonnet
         pythonnet.load("coreclr")
-    except Exception as e:
-        print(f"[WARN] pythonnet coreclr 初始化失败: {e}", file=sys.stderr)
+        import clr
 
-import clr
+        # 获取 DLL 所在的绝对路径
+        DLL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server")
+        if DLL_DIR not in sys.path:
+            sys.path.append(DLL_DIR)
 
-# 获取 DLL 所在的绝对路径
-DLL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server")
-if DLL_DIR not in sys.path:
-    sys.path.append(DLL_DIR)
-
-# 加载 DLL
-try:
-    if os.environ.get("USE_MOCK_DLL", "0") == "0":
         clr.AddReference("server")
         import Server
         GameEngineType = Server.GameEngine
-    else:
-        GameEngineType = None
-except Exception:
-    GameEngineType = None
+
+        # 关键：把 C# Console.Out 重定向到 stderr，
+        # 防止 C# 的调试日志污染 stdout（Saiblo 二进制协议流）
+        import System
+        System.Console.SetOut(System.Console.Error)
+
+        print("[DEBUG] C# DLL loaded successfully", file=sys.stderr)
+    except Exception as e:
+        print(f"[WARN] 加载 C# DLL 失败，回退 Mock 模式: {e}", file=sys.stderr)
+        USE_MOCK = True
 
 class MockGameEngine:
     def __init__(self):
@@ -73,7 +76,7 @@ class MockGameEngine:
 
 class GameEngineWrapper:
     def __init__(self, use_mock=False):
-        self.use_mock = use_mock or (GameEngineType is None) or (os.environ.get("USE_MOCK_DLL", "0") == "1")
+        self.use_mock = use_mock or USE_MOCK or (GameEngineType is None)
         if self.use_mock:
             print("[DEBUG] Using Mock GameEngine", file=sys.stderr)
             self.engine = MockGameEngine()

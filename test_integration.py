@@ -139,9 +139,14 @@ def main():
             print("[TEST] host 管道关闭")
             break
 
+        print(f"[TEST] 收到 host 消息: target={msg.get('_target')}, state={msg.get('state')}, keys={list(msg.keys())}")
+
         # 跳过观战消息 (target=-1)
         while msg and msg.get("_target") == -1:
+            print(f"[TEST] 跳过观战消息")
             msg = read_from_logic(host.stdout)
+            if msg:
+                print(f"[TEST] 收到 host 消息: target={msg.get('_target')}, state={msg.get('state')}, keys={list(msg.keys())}")
 
         if msg is None:
             break
@@ -196,4 +201,23 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import io
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_output.txt")
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        # 同时输出到终端和文件
+        class Tee:
+            def __init__(self, *streams):
+                self.streams = streams
+            def write(self, data):
+                for s in self.streams:
+                    s.write(data)
+            def flush(self):
+                for s in self.streams:
+                    s.flush()
+        orig_stdout = sys.stdout
+        sys.stdout = Tee(orig_stdout, log_file)
+        try:
+            main()
+        finally:
+            sys.stdout = orig_stdout
+    print(f"[TEST] 日志已保存到 {log_path}")
