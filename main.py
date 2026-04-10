@@ -47,11 +47,9 @@ class GameHost:
 
         # 4. 配置双方初始棋子 (此处可根据后端约定传递默认配置)
         for saiblo_id in [0, 1]:
-            # 获取默认棋子配置 (JSON 列表)
-            # todo: 与后端确认默认棋子数据结构
             default_pieces = self._get_default_pieces(saiblo_id)
-            # C# 接口使用 1-based ID
-            self.wrapper.set_player_pieces(saiblo_id + 1, default_pieces)
+            result = self.wrapper.set_player_pieces(saiblo_id, default_pieces)
+            print(f"[INFO] SetPlayerPieces({saiblo_id}) = {result}, pieces={default_pieces}", file=sys.stderr)
 
         # 5. 发送回合配置给 Saiblo (超时 60s, 最大消息 4096 字节)
         SaibloProtocol.send_round_config(time=60, length=4096)
@@ -59,10 +57,18 @@ class GameHost:
         print("[INFO] 初始化完成", file=sys.stderr)
 
     def _get_default_pieces(self, player_id: int) -> List[Dict]:
-        """获取玩家的初始棋子配置"""
-        # 示例配置，需根据 THUAI9 实际规则调整
+        """获取玩家的初始棋子配置
+        equip: x=武器(1=长剑,2=短剑,3=弓,4=法杖), y=防具(1=轻甲,2=中甲,3=重甲)
+        pos: player_id=0 放在上半场, player_id=1 放在下半场
+        """
         return [
-            {"strength": 10, "intelligence": 10, "dexterity": 10, "pos": {"x": 0, "y": 0 if player_id == 0 else 14}}
+            {
+                "strength": 10,
+                "intelligence": 10,
+                "dexterity": 10,
+                "equip": {"x": 1, "y": 2},  # 长剑 + 中甲
+                "pos": {"x": 5, "y": 2 if player_id == 0 else 12}
+            }
         ]
 
     def game_loop(self):
@@ -120,7 +126,7 @@ class GameHost:
             # 只有当响应的玩家是当前活跃玩家时才执行
             if parsed_ai["player"] == active_saiblo_id:
                 action_json = parsed_ai["content"]
-                self.wrapper.execute_action(csharp_pid, action_json)
+                self.wrapper.execute_action(active_saiblo_id, action_json)
 
         print("[INFO] ========== 游戏结束 ==========", file=sys.stderr)
         self.finalize()

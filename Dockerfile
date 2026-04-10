@@ -1,31 +1,34 @@
-# 使用 .NET 8.0 运行时作为基础镜像
+# Game Host Dockerfile
+# 需要 .NET 8 Runtime（用于 pythonnet 加载 C# DLL）+ Python 3.11
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 
-# 安装 Python 3 和构建依赖
+# 安装 Python 3.11
 RUN apt-get update && apt-get install -y \
-    python3 \
+    python3.11 \
+    python3.11-dev \
     python3-pip \
-    python3-dev \
-    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 设置工作目录
+# 让 python3 指向 3.11
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+
 WORKDIR /app
 
-# 复制依赖清单并安装
+# 安装 Python 依赖
 COPY requirements.txt .
-# Debian 系统下需要加 --break-system-packages 允许全局安装
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
-# 复制 C# 编译好的 DLL 文件到容器中
-# 对应测试文档中的 cp -r bin/Debug/net8.0/. ../../../game-host/server/
+# 复制 Python 代码
+COPY saiblo_protocol.py .
+COPY game_engine_wrapper.py .
+COPY main.py .
+
+# 复制 C# DLL（由后端 publish 产出，没有 DLL 时用 USE_MOCK_DLL=1 运行）
 COPY server/ ./server/
+# BoardCase 需要在工作目录下（DLL 用相对路径查找）
+COPY server/BoardCase/ ./BoardCase/
 
-# 复制 Python 主机的所有代码
-COPY . .
+# 默认使用 Mock，有 DLL 时设置 USE_MOCK_DLL=0
+ENV USE_MOCK_DLL=1
 
-# 默认环境变量：使用真实的 DLL（可以在 docker run 时被覆盖）
-ENV USE_MOCK_DLL=0
-
-# -u 参数保证 Python 实时输出不缓冲，防止通信死锁
 CMD ["python3", "-u", "main.py"]
